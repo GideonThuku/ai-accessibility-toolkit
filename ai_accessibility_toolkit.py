@@ -1,6 +1,5 @@
 # app.py
-# AI Accessibility Toolkit — upgraded UI + features
-# Save as app.py and run: streamlit run app.py
+# AI Accessibility Toolkit — Premium UI Edition
 
 import streamlit as st
 import tensorflow as tf
@@ -11,414 +10,319 @@ from transformers import pipeline
 import numpy as np
 from PIL import Image
 import re
-import math
 
-# -------------------------
-# --- Custom Styling CSS ---
-# -------------------------
-GLOBAL_CSS = """
+# ----------------------------
+# BEAUTIFUL PREMIUM CSS DESIGN
+# ----------------------------
+st.set_page_config(page_title="AI Accessibility Toolkit", page_icon="♿", layout="wide")
+
+st.markdown("""
 <style>
-/* Page background */
-[data-testid="stAppViewContainer"] > .main {
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+
+:root {
+    --primary: #1E88E5;
+    --accent: #00ACC1;
+    --success: #43A047;
+    --warning: #FB8C00;
+    --danger: #E53935;
+    --purple: #8E24AA;
+    --soft-bg: #F4F7FB;
+    --card-bg: rgba(255, 255, 255, 0.85);
 }
 
-/* Container card look */
-.card {
-  background-color: white;
-  padding: 20px;
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(17,24,39,0.06);
-  margin-bottom: 18px;
-}
-
-/* Fancy header */
-h1, h2, h3 {
-  font-family: 'Inter', 'Segoe UI', sans-serif;
-  color: #0b3d91;
-}
-
-/* Buttons */
-div.stButton > button {
-  border-radius: 12px;
-  padding: 0.6rem 1.1rem;
-  font-size: 0.95rem;
-  background: linear-gradient(90deg,#4a90e2,#6b9afc);
-  color: white;
-  border: none;
+/* Global background */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #eef3ff 0%, #ffffff 100%) !important;
 }
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg,#ffffff,#fafafa);
-  border-right: 1px solid #eee;
-  padding: 18px;
+    background: linear-gradient(180deg, #ffffff, #f6f9ff);
+    border-right: 1px solid #e0e6f1;
+    padding: 1.5rem 1rem;
 }
 
-/* Marked highlights */
+/* Typography */
+h1, h2, h3 {
+    font-weight: 700 !important;
+    color: #1a1f36 !important;
+    letter-spacing: -0.5px;
+}
+
+/* Card design */
+.card {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px);
+    padding: 24px;
+    border-radius: 18px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    margin-bottom: 25px;
+    transition: 0.25s ease;
+}
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 35px rgba(0,0,0,0.12);
+}
+
+/* Buttons */
+div.stButton > button {
+    background: var(--primary);
+    color: white;
+    padding: 0.65rem 1.6rem;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    border: none;
+    transition: 0.25s ease;
+}
+div.stButton > button:hover {
+    background: var(--accent);
+    transform: translateY(-2px);
+}
+
+/* Text areas */
+textarea {
+    border-radius: 14px !important;
+    border: 1px solid #d0d5e0 !important;
+}
+
+/* Highlight marks */
 mark {
-  background: #fff0b3;
-  border-radius: 4px;
-  padding: 0 4px;
+    background: #ffe59e;
+    padding: 3px 5px;
+    border-radius: 4px;
 }
 
-/* Small badge */
+/* Badges */
 .badge {
-  display:inline-block;
-  padding:4px 8px;
-  border-radius:999px;
-  background:#eef2ff;
-  color:#0b3d91;
-  font-size:0.85rem;
-  margin-right:6px;
+    padding: 5px 10px;
+    background: var(--accent);
+    color: white;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    margin-right: 8px;
+}
+
+/* Tool color accents */
+.tool-nlp h2 { color: var(--primary) !important; }
+.tool-cv h2 { color: var(--success) !important; }
+.tool-ethics h2 { color: var(--purple) !important; }
+
+/* Fade-in Animation */
+.main, .sidebar {
+    animation: fadeIn 0.6s ease-out;
+}
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 /* Footer */
 .app-footer {
-  text-align:center;
-  color:#666;
-  padding:10px;
-  margin-top:24px;
-  font-size:0.9rem;
+    text-align: center;
+    padding: 12px;
+    color: #777;
+    font-size: 0.9rem;
+    margin-top: 20px;
 }
+
 </style>
-"""
+""", unsafe_allow_html=True)
 
-st.set_page_config(page_title="AI Accessibility Toolkit", page_icon="♿", layout="wide")
-st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
-
-# ----------------------------------------
-# --- Helper: Card wrapper for pages  ---
-# ----------------------------------------
-def card_wrap(inner_fn):
+# ----------------------
+# COMPONENT: Card Wrapper
+# ----------------------
+def card(body_fn):
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    inner_fn()
+    body_fn()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# -------------------------
-# --- AI Model loaders  ---
-# -------------------------
+
+# ----------------------
+# MODEL LOADERS (CACHE)
+# ----------------------
 @st.cache_resource
 def load_image_model():
-    st.info("Loading Image Model (first time only)...")
-    model = mobilenet_v2.MobileNetV2(weights='imagenet')
-    return model
-
-def process_image(img_file):
-    img = Image.open(img_file).convert('RGB')
-    img = img.resize((224, 224))
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = preprocess_input(img_array)
-    return img_array
-
-def get_image_predictions(img_file):
-    model = load_image_model()
-    processed_img = process_image(img_file)
-    predictions = model.predict(processed_img)
-    decoded = decode_predictions(predictions, top=6)[0]
-    return decoded
+    st.info("Loading Image Model… (only on first run)")
+    return mobilenet_v2.MobileNetV2(weights='imagenet')
 
 @st.cache_resource
 def load_summarizer_model():
-    st.info("Loading Summarizer Model (first time only)...")
-    summarizer = pipeline("summarization", model="t5-small")
-    return summarizer
+    st.info("Loading Summarizer Model… (only on first run)")
+    return pipeline("summarization", model="t5-small")
 
-def summarize_text(text_input, max_in=1024, max_out=150, min_out=30):
+
+# --------------------------
+# TEXT SUMMARIZER FUNCTION
+# --------------------------
+def summarize_text(text):
     summarizer = load_summarizer_model()
-    text_chunk = text_input[:max_in]
-    summary = summarizer(text_chunk, max_length=max_out, min_length=min_out, do_sample=False)
+    summary = summarizer(text[:1024], max_length=150, min_length=30, do_sample=False)
     return summary[0]['summary_text']
 
-# --------------------------------------------
-# --- Inclusive language detection utilities ---
-# --------------------------------------------
-# Improved, grouped dictionary of problematic terms
-PROBLEMATIC_TERMS = {
-    "ableist": {
-        "crazy": "Use 'surprising', 'unexpected', or 'remarkable' instead (avoid stigmatizing mental health).",
-        "insane": "Use 'unbelievable' or 'chaotic' instead (avoid stigmatizing mental health).",
-        "lame": "Use 'disappointing' or 'underwhelming' instead (avoid ableist language).",
-        "dumb": "Use 'unhelpful' or 'not effective' instead.",
-        "handicapped": "Use 'person with a disability' or 'people with disabilities'.",
-        "the disabled": "Use 'people with disabilities' or 'persons with disabilities'.",
-        "crippled": "Avoid — use 'person with a mobility impairment' if necessary."
-    },
-    "gendered": {
-        "guys": "Use 'everyone', 'team', or 'folks' for mixed-gender groups.",
-        "chairman": "Use 'chair', 'chairperson', or 'chair of the board'.",
-        "housewife": "Use 'homemaker' or 'caregiver' depending on context.",
-        "manned": "Use 'staffed' or 'operated'."
-    },
-    "race_ethnicity": {
-        "illegal immigrant": "Use 'undocumented person' or 'migrant without legal status'.",
-        "oriental" : "Use 'Asian' (note: 'oriental' is outdated/offensive when describing people)."
-    },
-    "demeaning": {
-        "slave": "Avoid metaphorical use — use 'very hard work' or 'oppressive conditions' instead.",
-        "retarded": "Do not use — use 'person with an intellectual disability' or 'person with a developmental disability'."
-    }
+
+# --------------------------
+# IMAGE PROCESSING FUNCTION
+# --------------------------
+def get_image_predictions(img_file):
+    model = load_image_model()
+    img = Image.open(img_file).convert('RGB')
+    img = img.resize((224, 224))
+    arr = image.img_to_array(img)
+    arr = np.expand_dims(arr, axis=0)
+    arr = preprocess_input(arr)
+    preds = model.predict(arr)
+    return decode_predictions(preds, top=5)[0]
+
+
+# ---------------------------------------
+# INCLUSIVE LANGUAGE SCANNER DICTIONARY
+# ---------------------------------------
+PROBLEMATIC = {
+    "crazy": "Use 'unexpected' or 'surprising'.",
+    "insane": "Use 'unbelievable' or 'intense'.",
+    "lame": "Use 'uninspiring' or 'weak'.",
+    "dumb": "Use 'unhelpful' or 'unwise'.",
+    "handicapped": "Use 'person with a disability'.",
+    "the disabled": "Use 'persons with disabilities'.",
+    "guys": "Use 'everyone', 'team', or 'folks'.",
+    "chairman": "Use 'chairperson' or 'chair'.",
+    "housewife": "Use 'homemaker' or 'caregiver'."
 }
 
-# Flatten mapping for quick search
-FLAT_TERM_MAP = {}
-for group, terms in PROBLEMATIC_TERMS.items():
-    for k, v in terms.items():
-        FLAT_TERM_MAP[k] = v
-
-# regex-based scanner
-def scan_inclusive_language(text):
+def scan_language(text):
     found = []
-    # look for whole words, case-insensitive
-    for term, suggestion in FLAT_TERM_MAP.items():
-        if re.search(r'\b' + re.escape(term) + r'\b', text, re.IGNORECASE):
-            found.append((term, suggestion))
+    for word, advice in PROBLEMATIC.items():
+        if re.search(rf"\\b{word}\\b", text, re.IGNORECASE):
+            found.append((word, advice))
     return found
 
-# Highlight terms in text (returns HTML)
-def highlight_text(text):
-    def repl(match):
-        word = match.group(0)
-        return f"<mark>{word}</mark>"
-    # Build pattern from all keys
-    if not FLAT_TERM_MAP:
-        return text
-    pattern = r'\b(' + '|'.join(re.escape(k) for k in sorted(FLAT_TERM_MAP.keys(), key=lambda x: -len(x))) + r')\b'
-    highlighted = re.sub(pattern, repl, text, flags=re.IGNORECASE)
-    return highlighted
+def highlight_terms(text):
+    for word in PROBLEMATIC.keys():
+        text = re.sub(rf"\\b{word}\\b", f"<mark>{word}</mark>", text, flags=re.IGNORECASE)
+    return text
 
-# ---------------------------------------
-# --- Readability: ARI (Automated Readability Index)
-# ---------------------------------------
-def automated_readability_index(text):
-    # ARI = 4.71*(characters/words) + 0.5*(words/sentences) - 21.43
-    if not text or text.strip() == "":
-        return None
-    characters = len(re.sub(r'\s', '', text))
-    words = len(re.findall(r'\w+', text))
-    sentences = max(1, len(re.findall(r'[.!?]+', text)))
-    try:
-        ari = 4.71 * (characters / max(1, words)) + 0.5 * (words / max(1, sentences)) - 21.43
-        ari = round(ari, 2)
-    except Exception:
-        ari = None
-    return ari
 
-# --------------------------------
-# --- Page: About / Home Page ---
-# --------------------------------
-def run_about_page():
-    def inner():
-        st.markdown("## Welcome to the AI Accessibility Toolkit 🚀")
-        st.write("Final student project — collection of tools to support inclusive design and accessibility.")
-        st.markdown("""
-        **Tools included**
-        - 🧠 Cognitive Simplifier — summarizer & readability assist (NLP)
-        - 👁️ Image Inspector — image labels, ALT text helper & accessibility risk (CV)
-        - 🤝 Inclusive Language Scanner — highlights and suggestions (Ethics)
-        """)
-        st.markdown("---")
-        st.info("Tip: use the sidebar to switch between tools. The first run may download ML models.")
-    card_wrap(inner)
+# --------------------
+# PAGE: ABOUT / HOME
+# --------------------
+def about_page():
+    card(lambda: st.markdown("""
+        <h2>Welcome to the AI Accessibility Toolkit</h2>
+        <p>
+        This toolkit provides inclusive, accessible AI tools designed to support cognitive accessibility,
+        visual accessibility, and ethical language use.
+        </p>
+    """, unsafe_allow_html=True))
 
-# --------------------------------
-# --- Page: Cognitive Simplifier ---
-# --------------------------------
-def run_simplifier():
-    def inner():
-        st.markdown("## 🧠 Cognitive Simplifier")
-        st.caption("UN Goal 4: Quality Education — reduces cognitive load by producing concise summaries.")
-        st.info("Uses a pretrained summarization model. Try pasting an article or long email.")
 
-        text_input = st.text_area("Paste text to simplify", height=300, placeholder="Paste a long article, email, or document here...")
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            bullets = st.checkbox("Output as bullet points", value=False, key="bullets_checkbox")
-        with col2:
-            show_readability = st.checkbox("Show readability (ARI)", value=True, key="ari_checkbox")
+# ---------------------------
+# PAGE: COGNITIVE SIMPLIFIER
+# ---------------------------
+def simplifier_page():
+    st.markdown("<div class='tool-nlp'><h2>🧠 Cognitive Simplifier</h2></div>", unsafe_allow_html=True)
 
-        if st.button("Simplify Text", key="simplify_btn"):
-            if not text_input or text_input.strip() == "":
-                st.warning("Please paste some text to simplify.")
-                return
-            with st.spinner("Generating summary..."):
+    card(lambda:
+        st.info(
+            "This tool helps make long or complex text easier to understand. It uses an AI summarizer to generate a "
+            "shorter, clearer version ideal for accessibility, busy readers, and cognitive load reduction."
+        )
+    )
+
+    text = st.text_area("Paste text to simplify:", height=250)
+
+    if st.button("Simplify Text"):
+        if not text.strip():
+            st.warning("Please paste some text first.")
+        else:
+            with st.spinner("Summarizing…"):
                 try:
-                    summary_text = summarize_text(text_input)
+                    summary = summarize_text(text)
                 except Exception as e:
                     st.error(f"Summarizer error: {e}")
                     return
 
-            st.markdown('<div class="card">', unsafe_allow_html=True)
-            st.markdown("### ✨ AI-Generated Summary")
-            if bullets:
-                # simple split into sentences and list
-                sentences = re.split(r'(?<=[.!?])\s+', summary_text.strip())
-                for s in sentences:
-                    s_clean = s.strip()
-                    if s_clean:
-                        st.markdown(f"- {s_clean}")
-            else:
-                st.write(summary_text)
+            card(lambda: st.markdown(f"### Simplified Summary\n{summary}"))
 
-            if show_readability:
-                ari = automated_readability_index(text_input)
-                if ari is not None:
-                    st.markdown(f"**Readability (ARI):** {ari} (approx. U.S. grade level)")
-                else:
-                    st.markdown("**Readability (ARI):** N/A")
 
-            # quick keyword highlight
-            keywords = sorted(set(re.findall(r'\b\w{5,}\b', text_input.lower())), key=lambda x:-len(x))[:10]
-            if keywords:
-                st.markdown("**Highlighted keywords:**")
-                st.write(", ".join(keywords[:10]))
-            st.markdown('</div>', unsafe_allow_html=True)
-    card_wrap(inner)
+# ------------------------
+# PAGE: IMAGE INSPECTOR
+# ------------------------
+def image_page():
+    st.markdown("<div class='tool-cv'><h2>👁️ Image Inspector</h2></div>", unsafe_allow_html=True)
 
-# -------------------------------
-# --- Page: Image Inspector  ---
-# -------------------------------
-def run_image_inspector():
-    def inner():
-        st.markdown("## 👁️ Image Inspector")
-        st.caption("UN Goal 10: Reduced Inequalities — helps low-vision users by generating descriptions and accessibility cues.")
-        st.info("Upload a photo. The MobileNetV2 model will propose labels and an ALT-text suggestion. Note: ImageNet training has biases.")
+    card(lambda: st.info(
+        "Upload an image and AI will identify objects, generate helpful ALT text, and detect "
+        "potential accessibility concerns."
+    ))
 
-        uploaded_file = st.file_uploader("Upload an image...", type=["jpg", "jpeg", "png"], key="image_uploader")
-        if uploaded_file is None:
-            st.info("Try uploading a photo of a scene or object (e.g., a staircase, a crowded street).")
-            return
+    img_file = st.file_uploader("Upload image…", type=["jpg", "jpeg", "png"])
 
-        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+    if img_file:
+        st.image(img_file, use_column_width=True)
 
-        with st.spinner("Inspecting image with MobileNetV2..."):
-            try:
-                predictions = get_image_predictions(uploaded_file)
-            except Exception as e:
-                st.error(f"Image model error: {e}")
-                return
+        with st.spinner("Analyzing image…"):
+            preds = get_image_predictions(img_file)
 
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### What the AI sees")
-        # Display predictions as badges with confidence
-        for (obj_id, label, prob) in predictions:
-            label_clean = label.replace('_', ' ')
-            st.markdown(f"<span class='badge'>{label_clean} ({prob*100:.1f}%)</span>", unsafe_allow_html=True)
+        def display_preds():
+            st.markdown("### AI Detected:")
+            for _, label, prob in preds:
+                st.markdown(f"<span class='badge'>{label.replace('_',' ')} – {prob*100:.1f}%</span>", unsafe_allow_html=True)
 
-        # Create a short alt-text suggestion from top labels
-        top_labels = [label.replace('_', ' ') for (_, label, _) in predictions[:3]]
-        alt_text = f"A photo depicting {', '.join(top_labels)}."
-        st.markdown("**Suggested ALT text:**")
-        st.info(alt_text)
+            primary = preds[0][1].replace("_", " ")
+            st.markdown(f"### Suggested ALT Text:\nA photo containing **{primary}**.")
 
-        # Accessibility risk heuristics (simple rules)
-        risk_issues = []
-        low_vision_issues = []
-        for (_, label, prob) in predictions:
-            label_l = label.lower()
-            if any(x in label_l for x in ['stair', 'stairs', 'step', 'escalator']):
-                risk_issues.append("Detected stairs/steps — barrier for wheelchair users.")
-            if any(x in label_l for x in ['wheelbarrow','wheelchair','cane','white cane']):
-                low_vision_issues.append("Detected mobility/assistive device — consider inclusive access features.")
-            if 'crowd' in label_l or 'person' in label_l and prob > 0.6:
-                risk_issues.append("Crowded scene detected — may be a challenge for visually impaired people in navigation.")
+        card(display_preds)
 
-        if risk_issues or low_vision_issues:
-            st.markdown("### Accessibility Concerns")
-            for r in risk_issues:
-                st.warning(r)
-            for r in low_vision_issues:
-                st.info(r)
+
+# -----------------------------
+# PAGE: INCLUSIVE LANGUAGE TOOL
+# -----------------------------
+def language_page():
+    st.markdown("<div class='tool-ethics'><h2>🤝 Inclusive Language Scanner</h2></div>", unsafe_allow_html=True)
+
+    card(lambda: st.info(
+        "Paste text and AI will highlight non-inclusive or ableist terms and suggest better alternatives."
+    ))
+
+    text = st.text_area("Paste text to scan:", height=250)
+
+    if st.button("Scan Text"):
+        if not text.strip():
+            st.warning("Please paste some text first.")
         else:
-            st.success("No immediate accessibility hazards detected by quick heuristics — please review manually for real deployments.")
+            results = scan_language(text)
 
-        # Accessibility score (0-100) simple heuristic
-        score = 100
-        if risk_issues:
-            score -= 30
-        if low_vision_issues:
-            score -= 20
-        # scale to 0-100
-        score = max(0, min(100, score))
-        st.markdown(f"**Accessibility risk score:** {score}/100")
+            if not results:
+                st.success("Great! No non-inclusive language detected.")
+            else:
+                for term, suggestion in results:
+                    st.warning(f"**{term}** → {suggestion}")
 
-        st.markdown('</div>', unsafe_allow_html=True)
-    card_wrap(inner)
+                highlighted = highlight_terms(text)
+                card(lambda: st.markdown(highlighted, unsafe_allow_html=True))
 
-# -------------------------------------
-# --- Page: Inclusive Language Scan ---
-# -------------------------------------
-def run_language_scanner():
-    def inner():
-        st.markdown("## 🤝 Inclusive Language Scanner")
-        st.caption("UN Goal 10 & Goal 5 — detects non-inclusive, ableist, or biased language and suggests alternatives.")
-        st.info("Paste text (job ad, email, blog, policy). The scanner highlights problematic terms and provides suggestions.")
 
-        text_input = st.text_area("Paste text to scan", height=300, placeholder="Paste a job description, email, or blog post here...", key="scanner_area")
-        col1, col2 = st.columns([1,1])
-        with col1:
-            show_highlight = st.checkbox("Highlight found terms inline", value=True, key="highlight_checkbox")
-        with col2:
-            auto_fix = st.checkbox("Show suggested replacements inline", value=False, key="autofix_checkbox")
-
-        if st.button("Scan Text", key="scan_btn"):
-            if not text_input or text_input.strip() == "":
-                st.warning("Please paste some text to scan.")
-                return
-
-            with st.spinner("Scanning text..."):
-                results = scan_inclusive_language(text_input)
-
-                if not results:
-                    st.success("Looks good — no flagged terms found by the scanner.")
-                else:
-                    st.error(f"The scanner found {len(results)} potential issue(s):")
-                    # display detailed findings
-                    for (term, suggestion) in results:
-                        st.markdown(f"**Term:** \"{term}\" — **Suggestion:** {suggestion}")
-
-                # Inline highlighting or suggested-replacements view
-                if show_highlight:
-                    highlighted = highlight_text(text_input)
-                    st.markdown("**Highlighted Text:**")
-                    st.markdown(f"<div class='card'>{highlighted}</div>", unsafe_allow_html=True)
-
-                if auto_fix and results:
-                    fixed_text = text_input
-                    # Replace terms (case-insensitive) with suggested neutral phrase (take first sentence)
-                    for term, suggestion in results:
-                        # pick a short replacement from the suggestion text (take text before ';' or '.')
-                        repl = suggestion.split(';')[0].split('.')[0].strip()
-                        if repl == '':
-                            repl = '[suggested alternative]'
-                        fixed_text = re.sub(r'\b' + re.escape(term) + r'\b', repl, fixed_text, flags=re.IGNORECASE)
-                    st.markdown("**Auto-suggested replacement (preview):**")
-                    st.markdown(f"<div class='card'>{fixed_text}</div>", unsafe_allow_html=True)
-
-    card_wrap(inner)
-
-# ---------------------
-# --- Main app loop ---
-# ---------------------
+# ----------------
+# MAIN NAVIGATION
+# ----------------
 def main():
-    st.sidebar.title("AI Toolkit Navigation")
-    st.sidebar.write("Choose a tool below:")
-    pages = {
-        "🏠 About": run_about_page,
-        "🧠 Cognitive Simplifier": run_simplifier,
-        "👁️ Image Inspector": run_image_inspector,
-        "🤝 Inclusive Language Scanner": run_language_scanner
-    }
-    choice = st.sidebar.radio("Select a page", list(pages.keys()))
+    st.sidebar.title("Navigation")
+    choice = st.sidebar.radio("Choose a Tool", ["Home", "Cognitive Simplifier", "Image Inspector", "Inclusive Language Scanner"])
+
     st.sidebar.markdown("---")
-    st.sidebar.markdown("Built for the **AI for Software Engineering** course — Africa Ability Trust student project")
+    st.sidebar.markdown("Built by **Gideon Thuku** — Africa Ability Trust")
 
-    # Run chosen page
-    pages[choice]()
+    if choice == "Home":
+        about_page()
+    elif choice == "Cognitive Simplifier":
+        simplifier_page()
+    elif choice == "Image Inspector":
+        image_page()
+    elif choice == "Inclusive Language Scanner":
+        language_page()
 
-    # Footer
-    st.markdown("<div class='app-footer'>Built with ❤️ • AI Accessibility Toolkit • Africa Ability Trust</div>", unsafe_allow_html=True)
+    st.markdown("<div class='app-footer'>© Africa Ability Trust — Accessibility • Inclusion • Innovation</div>", unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
