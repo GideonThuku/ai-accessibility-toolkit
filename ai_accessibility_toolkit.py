@@ -59,7 +59,7 @@ def load_summarizer_model():
     # This message will only show the first time this page is loaded
     st.write("Cache Miss: Loading Summarizer Model (first time only)...")
     # This will download the model (t5-small) the first time it's run
-    summarizer = pipeline("summarization", model="t5-small")
+    summarizer = pipeline("summarization", model="t5-small", framework="pt")
     return summarizer
 
 def summarize_text(text_input):
