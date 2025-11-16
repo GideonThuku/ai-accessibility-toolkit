@@ -1,5 +1,5 @@
-# app.py
 # AI Accessibility Toolkit — Premium UI Edition
+# (Enhanced with Project Objectives & How-to-Use Guides)
 
 import streamlit as st
 import tensorflow as tf
@@ -48,6 +48,10 @@ h1, h2, h3 {
     color: #1a1f36 !important;
     letter-spacing: -0.5px;
 }
+h4 {
+    color: #333;
+    font-weight: 600;
+}
 
 /* Card design */
 .card {
@@ -58,6 +62,7 @@ h1, h2, h3 {
     box-shadow: 0 10px 25px rgba(0,0,0,0.08);
     margin-bottom: 25px;
     transition: 0.25s ease;
+    height: 100%; /* Make cards in a row equal height */
 }
 .card:hover {
     transform: translateY(-4px);
@@ -132,6 +137,7 @@ mark {
 # COMPONENT: Card Wrapper
 # ----------------------
 def card(body_fn):
+    """A helper function to wrap content in a card."""
     st.markdown('<div class="card">', unsafe_allow_html=True)
     body_fn()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -148,7 +154,10 @@ def load_image_model():
 @st.cache_resource
 def load_summarizer_model():
     st.info("Loading Summarizer Model… (only on first run)")
-    return pipeline("summarization", model="t5-small")
+    # --- THIS IS THE FIX ---
+    # We are adding framework="pt" to force it to use PyTorch
+    # This avoids the version conflict with TensorFlow.
+    return pipeline("summarization", model="t5-small", framework="pt")
 
 
 # --------------------------
@@ -192,13 +201,13 @@ PROBLEMATIC = {
 def scan_language(text):
     found = []
     for word, advice in PROBLEMATIC.items():
-        if re.search(rf"\\b{word}\\b", text, re.IGNORECASE):
+        if re.search(rf"\b{word}\b", text, re.IGNORECASE):
             found.append((word, advice))
     return found
 
 def highlight_terms(text):
     for word in PROBLEMATIC.keys():
-        text = re.sub(rf"\\b{word}\\b", f"<mark>{word}</mark>", text, flags=re.IGNORECASE)
+        text = re.sub(rf"\b{word}\b", f"<mark>{word}</mark>", text, flags=re.IGNORECASE)
     return text
 
 
@@ -206,13 +215,45 @@ def highlight_terms(text):
 # PAGE: ABOUT / HOME
 # --------------------
 def about_page():
+    st.markdown("<h2>Welcome to the AI Accessibility Toolkit 🚀</h2>", unsafe_allow_html=True)
+    st.markdown("This project is a fusion of AI and accessibility, designed to show how modern artificial intelligence can be used to build inclusive, real-world solutions. It's built as a final project for the **'AI for Software Engineering'** course.")
+    
+    st.markdown("---")
+
+    # --- Project Objectives ---
+    st.markdown("<h3>Project Objectives</h3>", unsafe_allow_html=True)
     card(lambda: st.markdown("""
-        <h2>Welcome to the AI Accessibility Toolkit</h2>
-        <p>
-        This toolkit provides inclusive, accessible AI tools designed to support cognitive accessibility,
-        visual accessibility, and ethical language use.
-        </p>
+        <ul style="list-style-type: none; padding-left: 0; line-height: 1.8;">
+            <li>✅ &nbsp; <strong>UN Goal 4 (Quality Education):</strong> Use AI to create tools (like the Simplifier) that make educational content accessible to all.</li>
+            <li>✅ &nbsp; <strong>UN Goal 10 (Reduced Inequalities):</strong> Build technology that removes barriers for persons with disabilities (like the Image Inspector).</li>
+            <li>✅ &nbsp; <strong>Ethical AI (Week 6):</strong> Demonstrate how to build AI tools that are not just *functional* but also *inclusive* and *ethical* (like the Language Scanner).</li>
+            <li>✅ &nbsp; <strong>Full-Stack AI (Week 5):</strong> Combine multiple AI models (from TensorFlow and Hugging Face) into one beautiful, deployable Streamlit application.</li>
+        </ul>
     """, unsafe_allow_html=True))
+
+    # --- Explore the Tools ---
+    st.markdown("<h3>Explore the Toolkit</h3>", unsafe_allow_html=True)
+    st.markdown("Use the navigation sidebar to select a tool. Each tool is designed to solve a specific accessibility challenge.")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        card(lambda: st.markdown("""
+            <div class='tool-nlp'><h4>🧠 Cognitive Simplifier</h4></div>
+            <p><strong>Course Skill:</strong> NLP (Week 2)</p>
+            <p>Uses a T5-Small model from Hugging Face to summarize complex text. Perfect for reducing cognitive load for users with cognitive disabilities or anyone who needs a quick summary.</p>
+        """, unsafe_allow_html=True))
+    with c2:
+        card(lambda: st.markdown("""
+            <div class='tool-cv'><h4>👁️ Image Inspector</h4></div>
+            <p><strong>Course Skill:</strong> Computer Vision (Week 2, Week 5)</p>
+            <p>Uses a MobileNetV2 model from TensorFlow/Keras to identify objects in an image and generate accessible ALT text for blind and low-vision users.</p>
+        """, unsafe_allow_html=True))
+    with c3:
+        card(lambda: st.markdown("""
+            <div class='tool-ethics'><h4>🤝 Inclusive Language Scanner</h4></div>
+            <p><strong>Course Skill:</strong> Ethical AI (Week 6)</p>
+            <p>A rules-based NLP tool to find and correct ableist, non-inclusive, or gendered language. Promotes ethical and respectful communication.</p>
+        """, unsafe_allow_html=True))
 
 
 # ---------------------------
@@ -221,12 +262,18 @@ def about_page():
 def simplifier_page():
     st.markdown("<div class='tool-nlp'><h2>🧠 Cognitive Simplifier</h2></div>", unsafe_allow_html=True)
 
-    card(lambda:
-        st.info(
-            "This tool helps make long or complex text easier to understand. It uses an AI summarizer to generate a "
-            "shorter, clearer version ideal for accessibility, busy readers, and cognitive load reduction."
-        )
-    )
+    card(lambda: st.info(
+        "This tool helps make long or complex text easier to understand. It uses an AI summarizer to generate a "
+        "shorter, clearer version ideal for accessibility, busy readers, and cognitive load reduction."
+    ))
+
+    # --- How to Use ---
+    st.subheader("How to Use")
+    card(lambda: st.markdown("""
+        1.  **Paste Text:** Copy any long piece of text (like an article, email, or report) and paste it into the text area below.
+        2.  **Click Simplify:** Press the "Simplify Text" button.
+        3.  **Get Summary:** The AI will take a moment (it may be slow on the first run) and will return a shorter, simpler summary in a new card.
+    """))
 
     text = st.text_area("Paste text to simplify:", height=250)
 
@@ -241,7 +288,7 @@ def simplifier_page():
                     st.error(f"Summarizer error: {e}")
                     return
 
-            card(lambda: st.markdown(f"### Simplified Summary\n{summary}"))
+                card(lambda: st.markdown(f"### Simplified Summary\n{summary}"))
 
 
 # ------------------------
@@ -254,6 +301,14 @@ def image_page():
         "Upload an image and AI will identify objects, generate helpful ALT text, and detect "
         "potential accessibility concerns."
     ))
+
+    # --- How to Use ---
+    st.subheader("How to Use")
+    card(lambda: st.markdown("""
+        1.  **Upload Image:** Click the "Browse files" button and select a `.jpg` or `.png` image from your device.
+        2.  **Wait for Analysis:** The AI will automatically process the image (this may be slow on the first run).
+        3.  **Review Results:** See the AI's top guesses, a suggested ALT text for screen readers, and any ethical considerations.
+    """))
 
     img_file = st.file_uploader("Upload image…", type=["jpg", "jpeg", "png"])
 
@@ -270,6 +325,17 @@ def image_page():
 
             primary = preds[0][1].replace("_", " ")
             st.markdown(f"### Suggested ALT Text:\nA photo containing **{primary}**.")
+            
+            # --- Ethical Consideration ---
+            st.markdown("---")
+            st.markdown("#### Ethical Consideration (from Week 6)")
+            st.warning(f"""
+            **Bias Warning:** This AI model (MobileNetV2) was trained on **ImageNet**, which has known biases.
+            
+            * It is **good** at identifying common objects (like '{primary}').
+            * It is **bad** at identifying disability-specific items (like a 'white cane' or 'wheelchair') which were not in its training data.
+            * A real-world app would require *fine-tuning* this model on a custom, more inclusive dataset.
+            """)
 
         card(display_preds)
 
@@ -283,6 +349,14 @@ def language_page():
     card(lambda: st.info(
         "Paste text and AI will highlight non-inclusive or ableist terms and suggest better alternatives."
     ))
+
+    # --- How to Use ---
+    st.subheader("How to Use")
+    card(lambda: st.markdown("""
+        1.  **Paste Text:** Copy any text (like a job description, email, or document) into the text area.
+        2.  **Click Scan:** Press the "Scan Text" button.
+        3.  **Review Results:** The AI will either give you an "all clear" or provide a list of problematic terms with suggestions for improvement. It will also highlight the terms in your original text.
+    """))
 
     text = st.text_area("Paste text to scan:", height=250)
 
